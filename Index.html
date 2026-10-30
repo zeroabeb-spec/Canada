@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Canada Work Permit Tracker</title>
+  <!-- Supabase JS Library -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    :root {
+      --primary: #d82927;
+      --primary-dark: #b01e1c;
+      --bg: #f4f6f9;
+      --card-bg: #ffffff;
+      --text: #2c3e50;
+      --border: #e2e8f0;
+      --status-approved: #2ea44f;
+      --status-processing: #d97706;
+      --status-rejected: #cb2431;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+    body { background-color: var(--bg); color: var(--text); line-height: 1.6; }
+
+    header {
+      background: linear-gradient(135deg, #111827 0%, #1f2937 100%);
+      color: white;
+      padding: 1.5rem 2rem;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    }
+
+    .header-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+
+    .brand { display: flex; align-items: center; gap: 1rem; }
+    .flags-container {
+      display: flex; align-items: center; gap: 0.5rem;
+      background: rgba(255, 255, 255, 0.1);
+      padding: 0.4rem 0.8rem;
+      border-radius: 30px;
+    }
+    .flag-icon { width: 28px; height: 20px; border-radius: 3px; object-fit: cover; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
+    .brand h1 { font-size: 1.4rem; font-weight: 700; letter-spacing: 0.5px; }
+    .brand p { font-size: 0.8rem; color: #9ca3af; }
+
+    .container { max-width: 1200px; margin: 2rem auto; padding: 0 1rem; }
+
+    .controls-bar {
+      background: var(--card-bg);
+      padding: 1.2rem;
+      border-radius: 12px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+      margin-bottom: 2rem;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .search-box { flex: 1; min-width: 250px; position: relative; }
+    .search-box input {
+      width: 100%; padding: 0.75rem 1rem 0.75rem 2.5rem;
+      border: 1px solid var(--border); border-radius: 8px; font-size: 0.95rem; outline: none;
+    }
+    .search-box input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(216, 41, 39, 0.1); }
+    .search-box::before { content: "🔍"; position: absolute; left: 0.8rem; top: 50%; transform: translateY(-50%); opacity: 0.5; }
+
+    .filter-group { display: flex; gap: 0.5rem; }
+    .filter-btn {
+      padding: 0.6rem 1rem; border: 1px solid var(--border); background: white;
+      border-radius: 8px; cursor: pointer; font-size: 0.85rem; font-weight: 600; color: #4b5563; transition: all 0.2s;
+    }
+    .filter-btn.active, .filter-btn:hover { background: var(--primary); color: white; border-color: var(--primary); }
+
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 1.5rem; }
+
+    .card {
+      background: var(--card-bg);
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+      border: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 1.5rem;
+      text-align: center;
+      position: relative;
+    }
+
+    .photo-wrapper { position: relative; margin-bottom: 1rem; }
+    .applicant-photo {
+      width: 110px; height: 110px; border-radius: 50%; object-fit: cover;
+      border: 4px solid white; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+    }
+    .status-badge {
+      position: absolute; bottom: 0; right: 0; padding: 0.25rem 0.6rem;
+      border-radius: 20px; font-size: 0.7rem; font-weight: 700; color: white;
+      text-transform: uppercase; border: 2px solid white;
+    }
+    .status-approved { background-color: var(--status-approved); }
+    .status-processing { background-color: var(--status-processing); }
+    .status-rejected { background-color: var(--status-rejected); }
+
+    .applicant-name { font-size: 1.2rem; font-weight: 700; color: #1f2937; margin-bottom: 0.2rem; }
+
+    .info-list {
+      width: 100%; margin: 1rem 0; text-align: left; background: #f9fafb;
+      padding: 0.8rem 1rem; border-radius: 8px; font-size: 0.88rem;
+    }
+    .info-item { display: flex; justify-content: space-between; padding: 0.35rem 0; border-bottom: 1px dashed #e5e7eb; }
+    .info-item:last-child { border-bottom: none; }
+    .info-label { color: #6b7280; font-weight: 500; }
+    .info-value { font-weight: 600; color: #111827; }
+
+    .action-btn {
+      width: 100%; padding: 0.65rem; border: none; border-radius: 8px;
+      background: #eff6ff; color: #2563eb; font-weight: 600; cursor: pointer; font-size: 0.85rem;
+    }
+    .action-btn:hover { background: #dbeafe; }
+
+    /* Modal */
+    .modal {
+      display: none; position: fixed; inset: 0; background: rgba(0, 0, 0, 0.6);
+      z-index: 1000; align-items: center; justify-content: center; padding: 1rem; backdrop-filter: blur(4px);
+    }
+    .modal.active { display: flex; }
+    .modal-content {
+      background: white; border-radius: 12px; max-width: 650px; width: 100%;
+      max-height: 90vh; overflow-y: auto; padding: 2rem; position: relative;
+    }
+    .close-btn { position: absolute; top: 1rem; right: 1rem; background: none; border: none; font-size: 1.5rem; cursor: pointer; color: #9ca3af; }
+
+    .letter-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--primary); padding-bottom: 1rem; margin-bottom: 1.5rem; }
+    .letter-logo { font-size: 1.2rem; font-weight: 800; color: var(--primary); }
+    .letter-body { font-size: 0.95rem; line-height: 1.7; color: #374151; }
+    .letter-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; background: #f9fafb; padding: 1rem; border-radius: 8px; margin: 1rem 0; border: 1px solid var(--border); }
+    .stamp-box { margin-top: 2rem; display: flex; justify-content: space-between; align-items: flex-end; }
+    .official-stamp {
+      width: 100px; height: 100px; border: 3px dashed var(--primary); border-radius: 50%;
+      display: flex; align-items: center; justify-content: center; text-align: center;
+      font-size: 0.65rem; font-weight: bold; color: var(--primary); transform: rotate(-12deg); padding: 5px;
+    }
+    .empty-state { text-align: center; grid-column: 1 / -1; padding: 3rem; color: #9ca3af; }
+    .print-btn { background: #10b981; color: white; border: none; padding: 0.6rem 1.2rem; border-radius: 6px; cursor: pointer; font-weight: 600; margin-top: 1rem; width: 100%; }
+
+    @media print {
+      body * { visibility: hidden; }
+      .modal-content, .modal-content * { visibility: visible; }
+      .modal { position: absolute; left: 0; top: 0; background: white; }
+      .close-btn, .print-btn { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="header-container">
+      <div class="brand">
+        <div class="flags-container">
+          <!-- Ethiopian Flag -->
+          <svg class="flag-icon" viewBox="0 0 640 480"><path fill="#009a44" d="M0 0h640v160H0z"/><path fill="#fed100" d="M0 160h640v160H0z"/><path fill="#d82927" d="M0 320h640v160H0z"/><circle cx="320" cy="240" r="60" fill="#0072c6"/><path fill="#fed100" d="M320 185l11 34h36l-29 21 11 34-29-21-29 21 11-34-29-21h36z"/></svg>
+          <!-- Canadian Flag -->
+          <svg class="flag-icon" viewBox="0 0 640 480"><path fill="#ff0000" d="M0 0h160v480H0zm480 0h160v480H480z"/><path fill="#fff" d="M160 0h320v480H160z"/><path fill="#ff0000" d="M320 60l18 48 48-18-18 48 48 18-48 18 18 48-48-18-18 48-18-48-48 18 18-48-48-18 48-18-18-48 48 18z"/></svg>
+        </div>
+        <div>
+          <h1>Canada Work Permit Tracker</h1>
+          <p>Official Ethiopian Applicant Processing Portal</p>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <div class="container">
+    <div class="controls-bar">
+      <div class="search-box">
+        <input type="text" id="searchInput" placeholder="Search by name or passport number..." oninput="filterApplicants()">
+      </div>
+      <div class="filter-group">
+        <button class="filter-btn active" onclick="setFilter('all', this)">All</button>
+        <button class="filter-btn" onclick="setFilter('approved', this)">Approved</button>
+        <button class="filter-btn" onclick="setFilter('processing', this)">In Process</button>
+        <button class="filter-btn" onclick="setFilter('rejected', this)">Rejected</button>
+      </div>
+    </div>
+
+    <div class="grid" id="applicantsGrid"></div>
+  </div>
+
+  <!-- View Letter Modal -->
+  <div class="modal" id="letterModal">
+    <div class="modal-content">
+      <button class="close-btn" onclick="closeModal('letterModal')">&times;</button>
+      <div id="letterContent"></div>
+      <button class="print-btn" onclick="window.print()">🖨️ Print Document</button>
+    </div>
+  </div>
+
+  <script>
+    // --- SUPABASE CONFIGURATION ---
+    const SUPABASE_URL = 'https://dscvbhdhgmoikvluijcr.supabase.co';
+    const SUPABASE_ANON_KEY = 'sb_publishable_Pf3i4kCGjGMcV8-KBR_JAA_4QdKCH-P';
+
+    const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    let applicantsList = [];
+    let currentFilter = 'all';
+
+    async function fetchApplicants() {
+      const { data, error } = await _supabase.from('applicants').select('*');
+      if (error) {
+        console.error('Error fetching applicants:', error);
+        return;
+      }
+      applicantsList = data || [];
+      renderApplicants();
+    }
+
+    function renderApplicants() {
+      const grid = document.getElementById('applicantsGrid');
+      const search = document.getElementById('searchInput').value.toLowerCase();
+
+      const filtered = applicantsList.filter(app => {
+        const matchesFilter = currentFilter === 'all' || app.status === currentFilter;
+        const matchesSearch = app.name.toLowerCase().includes(search) || app.passport.toLowerCase().includes(search);
+        return matchesFilter && matchesSearch;
+      });
+
+      if (filtered.length === 0) {
+        grid.innerHTML = `<div class="empty-state"><h3>No applicants found</h3><p>Try adjusting your search criteria</p></div>`;
+        return;
+      }
+
+      grid.innerHTML = filtered.map(app => `
+        <div class="card">
+          <div class="photo-wrapper">
+            <img src="${app.photo}" alt="${app.name}" class="applicant-photo" onerror="this.src='https://via.placeholder.com/150'">
+            <span class="status-badge status-${app.status}">${app.status}</span>
+          </div>
+          <div class="applicant-name">${app.name}</div>
+          <div class="info-list">
+            <div class="info-item"><span class="info-label">Age:</span><span class="info-value">${app.age || 'N/A'}</span></div>
+            <div class="info-item"><span class="info-label">Nationality:</span><span class="info-value">${app.nationality}</span></div>
+            <div class="info-item"><span class="info-label">Passport No:</span><span class="info-value">${app.passport}</span></div>
+            <div class="info-item"><span class="info-label">Employer:</span><span class="info-value">${app.employer}</span></div>
+          </div>
+          <button class="action-btn" onclick="openLetter('${app.id}')">📄 View Status Letter</button>
+        </div>
+      `).join('');
+    }
+
+    function setFilter(filter, btn) {
+      currentFilter = filter;
+      document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      renderApplicants();
+    }
+
+    function filterApplicants() {
+      renderApplicants();
+    }
+
+    function openLetter(id) {
+      const app = applicantsList.find(a => a.id == id);
+      if (!app) return;
+
+      const content = document.getElementById('letterContent');
+      const isApproved = app.status === 'approved';
+
+      content.innerHTML = `
+        <div class="letter-header">
+          <div class="letter-logo">🍁 IRCC Official Notification</div>
+          <div style="font-size: 0.8rem; text-align: right; color: #6b7280;">Ref: CAN-${Math.floor(100000 + Math.random() * 900000)}<br>Date: ${new Date().toLocaleDateString()}</div>
+        </div>
+        <div class="letter-body">
+          <p><strong>To Applicant:</strong> ${app.name}</p>
+          <p>This document serves as formal communication regarding your application for a Canadian Work Permit.</p>
+          
+          <div class="letter-grid">
+            <div><strong>Full Name:</strong> ${app.name}</div>
+            <div><strong>Age:</strong> ${app.age || 'N/A'}</div>
+            <div><strong>Nationality:</strong> ${app.nationality}</div>
+            <div><strong>Passport No:</strong> ${app.passport}</div>
+            <div><strong>Employer:</strong> ${app.employer}</div>
+            <div><strong>Status:</strong> <span style="text-transform: uppercase; font-weight: bold; color: ${isApproved ? 'green' : 'orange'}">${app.status}</span></div>
+          </div>
+
+          <p>${isApproved ? 
+            'We are pleased to inform you that your Work Permit application has been <strong>APPROVED</strong>. You are cleared to proceed with travel arrangements in coordination with your employer.' : 
+            'Your application is currently <strong>IN PROCESS</strong>. Background checks and document verification are ongoing. Please wait for further instructions.'}</p>
+
+          <div class="stamp-box">
+            <div>
+              <p><strong>Immigration, Refugees and Citizenship Canada</strong></p>
+              <p style="font-size: 0.8rem; color: #6b7280;">Government of Canada</p>
+            </div>
+            <div class="official-stamp">
+              APPROVED<br>CANADA VISAS<br>★ OFFICIAL ★
+            </div>
+          </div>
+        </div>
+      `;
+      document.getElementById('letterModal').classList.add('active');
+    }
+
+    function closeModal(id) {
+      document.getElementById(id).classList.remove('active');
+    }
+
+    // Load data on startup
+    fetchApplicants();
+  </script>
+</body>
+</html>
